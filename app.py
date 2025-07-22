@@ -169,6 +169,7 @@ with tab3:
             with st.spinner("Calculating prediction..."):
                 try:
                     prediction = update_and_predict()
+                    prediction = prediction/10
                     st.success(f"Predicted NIFTY 50 Close: ₹{(prediction  ):,.2f}")
                     
                     # Calculate prediction change
