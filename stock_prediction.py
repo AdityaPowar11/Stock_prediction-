@@ -139,8 +139,9 @@ def update_and_predict():
         y_pred = model.predict(X_new)
         # Scale the prediction back to actual price range
         predicted_price = y_pred[0][0] * (max_close - min_close) + min_close
+        predicted_price =predicted_price/10
         print(f"Predicted Close Price: {(predicted_price):,.2f}")
-        return (predicted_price/10)
+        return (predicted_price)
     except Exception as e:
         print(f"Error in prediction: {e}")
         return None
