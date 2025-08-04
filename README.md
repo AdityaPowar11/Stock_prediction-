@@ -1,1 +1,3 @@
-THis is an nifty 50 Stock Prediction app using lstm and news sentiment 
+This is an nifty 50 Stock Prediction app using lstm and news sentiment .
+Todays market acts on the news by using news articles,news sentiment and the historical data can go hand in hand this application uses both historical and news data for the prediction.
+we are using an lstm and nltk model models for stock and sentiment score.
