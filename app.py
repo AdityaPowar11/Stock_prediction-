@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # Custom CSS
-st.markdown(""
+st.markdown("""
     <style>
     .main {
         padding: 2rem;
@@ -36,7 +36,7 @@ st.markdown(""
         margin: 0.5rem 0;
     }
     </style>
-"", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # Sidebar
 st.sidebar.title("📊 Controls & Filters")
@@ -155,7 +155,7 @@ with tab2:
                         <p>Sentiment: {row['news_sentiment']:.2f}</p>
                         <a href="{row['url']}" target="_blank">Read More</a>
                     </div>
-                    ("", unsafe_allow_html=True)
+                    "", unsafe_allow_html=True)
         except FileNotFoundError:
             st.warning("No news data available")
 
