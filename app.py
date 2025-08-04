@@ -148,14 +148,14 @@ with tab2:
             
             for _, row in news_df.iterrows():
                 with st.container():
-                    st.markdown(f"""
+                    st.markdown(f""
                     <div class="metric-card">
                         <h4>{row['title']}</h4>
                         <p>Date: {row['date']}</p>
                         <p>Sentiment: {row['news_sentiment']:.2f}</p>
                         <a href="{row['url']}" target="_blank">Read More</a>
                     </div>
-                    """, unsafe_allow_html=True)
+                    ("", unsafe_allow_html=True)
         except FileNotFoundError:
             st.warning("No news data available")
 
