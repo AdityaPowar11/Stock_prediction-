@@ -106,19 +106,16 @@ def update_and_predict():
     import os
 
 
-    model_path = 'nifty_price_prediction_model.pkl'
+    model_path = 'nifty_price_prediction_model (1).h5'
     
 
     if not os.path.exists(model_path):
         print(f"Model file not found at {model_path}")
         return None
 
-    try:
-        with open(model_path, 'rb') as f:
-            model = pickle.load(f)
-    except Exception as e:
-        print(f"Error loading the model: {e}")
-        return None
+    # Load the saved model
+    model = load_model(model_path)
+
     # Define feature columns
     features = ['Open', 'High', 'Low', 'Volume', 'news_sentiment']
 
@@ -142,9 +139,8 @@ def update_and_predict():
         y_pred = model.predict(X_new)
         # Scale the prediction back to actual price range
         predicted_price = y_pred[0][0] * (max_close - min_close) + min_close
-        predicted_price =predicted_price
         print(f"Predicted Close Price: {(predicted_price):,.2f}")
-        return (predicted_price)
+        return (predicted_price/10)
     except Exception as e:
         print(f"Error in prediction: {e}")
         return None
