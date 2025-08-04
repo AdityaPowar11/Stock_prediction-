@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # Custom CSS
-st.markdown("""
+st.markdown(""
     <style>
     .main {
         padding: 2rem;
@@ -36,7 +36,7 @@ st.markdown("""
         margin: 0.5rem 0;
     }
     </style>
-""", unsafe_allow_html=True)
+"", unsafe_allow_html=True)
 
 # Sidebar
 st.sidebar.title("📊 Controls & Filters")
