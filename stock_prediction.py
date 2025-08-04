@@ -106,7 +106,7 @@ def update_and_predict():
     import os
 
 
-    model_path = 'nifty_price_prediction_model (1).h5'
+    model_path = 'nifty_price_prediction_model.pkl'
     
 
     if not os.path.exists(model_path):
