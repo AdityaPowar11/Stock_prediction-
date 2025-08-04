@@ -113,9 +113,12 @@ def update_and_predict():
         print(f"Model file not found at {model_path}")
         return None
 
-    # Load the saved model
-    model = load_model(model_path)
-
+    try:
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+    except Exception as e:
+        print(f"Error loading the model: {e}")
+        return None
     # Define feature columns
     features = ['Open', 'High', 'Low', 'Volume', 'news_sentiment']
 
