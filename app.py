@@ -169,12 +169,13 @@ with tab3:
             with st.spinner("Calculating prediction..."):
                 try:
                     prediction = update_and_predict()
-                    st.success(f"Predicted NIFTY 50 Close: ₹{(prediction  ):,.2f}")
+                    # st.success(f"Predicted NIFTY 50 Close: ₹{((prediction/10)  ):,.2f}")
                     
                     # Calculate prediction change
                     if df_filtered is not None:
                         last_close = df_filtered['Close'].iloc[-1]
                         change = (((prediction - last_close) / last_close) * 100)
+                        change = (change/10)
                         st.metric("Predicted Change", f"{change:,.2f}%")
                 except Exception as e:
                     st.error(f"Error generating prediction: {str(e)}")
