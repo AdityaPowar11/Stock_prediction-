@@ -1,12 +1,5 @@
 # 📈 NIFTY 50 Stock Prediction & News Sentiment Analysis
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
-  <img src="https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit"/>
-  <img src="https://img.shields.io/badge/TensorFlow-LSTM-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" alt="TensorFlow"/>
-  <img src="https://img.shields.io/badge/NLTK%20%2B%20TextBlob-Sentiment-4B8BBE?style=for-the-badge" alt="Sentiment Analysis"/>
-  <img src="https://img.shields.io/badge/yFinance-Market%20Data-0B5FFF?style=for-the-badge" alt="yFinance"/>
-</p>
 
 <p align="center">
   <b>A market intelligence dashboard that combines NIFTY 50 historical data with financial-news sentiment to support next-price prediction.</b>
