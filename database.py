@@ -208,3 +208,98 @@ def set_metadata(key, value):
             """,
             (key, str(value)),
         )
+
+
+
+def record_prediction(prediction_date, predicted_close, model_name, model_version):
+    init_db()
+    with get_connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prediction_date TEXT NOT NULL,
+                predicted_close REAL NOT NULL,
+                actual_close REAL,
+                model_name TEXT NOT NULL,
+                model_version TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO predictions
+                (prediction_date, predicted_close, model_name, model_version)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                pd.to_datetime(prediction_date).date().isoformat(),
+                float(predicted_close),
+                model_name,
+                model_version,
+            ),
+        )
+
+
+def update_prediction_actuals():
+    init_db()
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE predictions
+            SET actual_close = (
+                SELECT close
+                FROM market_data
+                WHERE market_data.date = predictions.prediction_date
+            )
+            WHERE actual_close IS NULL
+            """
+        )
+
+
+def record_model_metric(model_name, model_version, mae, rmse, directional_accuracy):
+    init_db()
+    with get_connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS model_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_name TEXT NOT NULL,
+                model_version TEXT NOT NULL,
+                mae REAL NOT NULL,
+                rmse REAL NOT NULL,
+                directional_accuracy REAL NOT NULL,
+                trained_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO model_metrics
+                (model_name, model_version, mae, rmse, directional_accuracy)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                model_name,
+                model_version,
+                float(mae),
+                float(rmse),
+                float(directional_accuracy),
+            ),
+        )
+
+
+def latest_predictions(limit=30):
+    init_db()
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT *
+            FROM predictions
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            conn,
+            params=(int(limit),),
+        )
