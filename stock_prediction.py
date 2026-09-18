@@ -1,150 +1,134 @@
+import warnings
+
+import nltk
 import pandas as pd
 import yfinance as yf
-from textblob import TextBlob
 from newspaper import Article
-import nltk
-import datetime
-import warnings
-warnings.filterwarnings("ignore")
-nltk.download('punkt')
+from textblob import TextBlob
 
-# Function to get sentiment score for a given URL
+from database import init_db, load_market_data, seed_from_csv, upsert_market_data, upsert_news, set_metadata
+
+warnings.filterwarnings("ignore")
+init_db()
+nltk.download("punkt", quiet=True)
+
+
 def get_sentiment_score(url):
     try:
-        # Extract article
         article = Article(url)
         article.download()
         article.parse()
-
-        # Sentiment analysis
-        analysis = TextBlob(article.text)
-        polarity = analysis.polarity
-
-        return polarity
-
-    except Exception as e:
-        print(f"Error processing URL {url}: {e}")
+        return TextBlob(article.text).polarity
+    except Exception as exc:
+        print(f"Error processing URL {url}: {exc}")
         return None
 
-# News Scraper function to generate URLs
+
 def news_scraper():
     from bs4 import BeautifulSoup
     import requests
 
-    url = 'https://www.moneycontrol.com/indian-indices/NIFTY-50-9.html'
-    web = requests.get(url)
-    content = web.text
-    soup = BeautifulSoup(content, 'lxml')
-    dates = soup.find_all('div', class_='date_block')
-    matches = soup.find_all('div', class_='news_block')
+    url = "https://www.moneycontrol.com/indian-indices/NIFTY-50-9.html"
+    response = requests.get(
+        url,
+        timeout=15,
+        headers={"User-Agent": "Mozilla/5.0"},
+    )
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, "lxml")
+    dates = soup.find_all("div", class_="date_block")
+    matches = soup.find_all("div", class_="news_block")
     data = []
 
     for match, date in zip(matches, dates):
-        anchor = match.find('a')
+        anchor = match.find("a")
         if anchor is not None and date is not None:
             title = anchor.get_text(strip=True)
-            news_url = anchor.get('href', '')
+            news_url = anchor.get("href", "")
             news_date = date.get_text(strip=True)
 
-            data.append({'date': news_date, 'title': title, 'url': news_url})
+            if news_url:
+                data.append(
+                    {"date": news_date, "title": title, "url": news_url}
+                )
 
-    news_df = pd.DataFrame(data)
-    return news_df
+    return pd.DataFrame(data, columns=["date", "title", "url"])
 
-# Fetch stock data
-stock = yf.Ticker("^NSEI")
-stock_data = stock.history(period="1d")
-stock_data = stock_data.reset_index()
-stock_data['Date'] = stock_data['Date'].dt.date
 
-# Extract required columns
-df2 = stock_data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
+def update_database():
+    """Fetch the latest market/news data and persist it in SQLite."""
+    stock = yf.Ticker("^NSEI")
+    stock_data = stock.history(period="1d").reset_index()
 
-# Get the news URLs
-news_df = news_scraper()
-urls = news_df['url'].tolist()
+    if stock_data.empty:
+        raise RuntimeError("No NIFTY 50 market data was returned.")
 
-# Calculate sentiment scores for each URL
-sentiment_scores = [get_sentiment_score(url) for url in urls]
+    stock_data["Date"] = pd.to_datetime(stock_data["Date"]).dt.date
+    market_df = stock_data[
+        ["Date", "Open", "High", "Low", "Close", "Volume"]
+    ].copy()
 
-# Calculate average sentiment score
-if sentiment_scores:
-    average_sentiment_score = sum([score for score in sentiment_scores if score is not None]) / len(sentiment_scores)
-else:
-    average_sentiment_score = 0
+    news_df = news_scraper()
 
-# Add sentiment score to DataFrames
-df2['news_sentiment'] = average_sentiment_score
-news_df['news_sentiment'] = average_sentiment_score
+    if not news_df.empty:
+        scores = [get_sentiment_score(url) for url in news_df["url"]]
+        valid_scores = [score for score in scores if score is not None]
+        average_sentiment = (
+            sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
+        )
+        news_df["news_sentiment"] = scores
+        market_df["news_sentiment"] = average_sentiment
+    else:
+        news_df["news_sentiment"] = pd.Series(dtype=float)
+        market_df["news_sentiment"] = 0.0
 
-# Handle `nifty_index_with_sentiment.csv`
-try:
-    df = pd.read_csv("nifty_index_with_sentiment.csv")
-    df = pd.concat([df, df2], ignore_index=True)
-    df.drop_duplicates(subset=["Date"], keep="last", inplace=True)
-except FileNotFoundError:
-    df = df2
-df.drop_duplicates(subset=["Date"], keep="last", inplace=True)
-df.to_csv("nifty_index_with_sentiment.csv", index=False)
+    upsert_market_data(market_df)
 
-# Handle `news_df.csv`
-try:
-    news_df1 = pd.read_csv("news_df.csv")
-    news_df1 = pd.concat([news_df1, news_df], ignore_index=True)
-    news_df1.drop_duplicates(subset=["url"], keep="last", inplace=True)
-except FileNotFoundError:
-    news_df1 = news_df
+    if not news_df.empty:
+        upsert_news(news_df)
 
-news_df1.to_csv("news_df.csv", index=False)
+    set_metadata("last_market_update", pd.Timestamp.utcnow().isoformat())
+    return market_df, news_df
 
-# print(df)
+
+def get_data():
+    """Load persisted data, bootstrapping the database from CSV on first run."""
+    seed_from_csv()
+    return load_market_data()
+
 
 def update_and_predict():
-    import numpy as np
-    import pandas as pd
-    from tensorflow.keras.models import load_model
     import os
+    import numpy as np
+    from tensorflow.keras.models import load_model
 
-
-    model_path = 'nifty_price_prediction_model (1).h5'
-    
+    model_path = "nifty_price_prediction_model (1).h5"
 
     if not os.path.exists(model_path):
         print(f"Model file not found at {model_path}")
         return None
 
-    # Load the saved model
-    model = load_model(model_path)
+    df = get_data()
 
-    # Define feature columns
-    features = ['Open', 'High', 'Low', 'Volume', 'news_sentiment']
-
-    # Ensure 'df' is populated with the latest data
     if len(df) < 10:
         print("Insufficient data for prediction. Need at least 10 data points.")
         return None
 
-    # Extract the latest 10 records for prediction
+    model = load_model(model_path)
+    features = ["Open", "High", "Low", "Volume", "news_sentiment"]
     X_new = df[features].values[-10:]
-
-    # Reshape to 3D format: (1, timesteps, features)
     X_new = X_new.reshape(1, 10, len(features))
 
-    # Get min and max values for scaling back the prediction
-    max_close = df['Close'].max()
-    min_close = df['Close'].min()
-
-    # Predict using the model
     try:
-        y_pred = model.predict(X_new)
-        # Scale the prediction back to actual price range
+        y_pred = model.predict(X_new, verbose=0)
+
+        max_close = df["Close"].max()
+        min_close = df["Close"].min()
         predicted_price = y_pred[0][0] * (max_close - min_close) + min_close
-        print(f"Predicted Close Price: {(predicted_price):,.2f}")
-        return (predicted_price/10)
-    except Exception as e:
-        print(f"Error in prediction: {e}")
+
+        print(f"Predicted Close Price: ₹{predicted_price:,.2f}")
+        return float(predicted_price)
+    except Exception as exc:
+        print(f"Error in prediction: {exc}")
         return None
-
-prediction = update_and_predict()
-print(f"The predicted price is: {prediction}")
-
