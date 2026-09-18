@@ -49,12 +49,23 @@ try:
         df_filtered = None
     else:
         df["Date"] = pd.to_datetime(df["Date"])
+        df = df.sort_values("Date").reset_index(drop=True)
+
         min_date = df["Date"].min()
         max_date = df["Date"].max()
 
+        # Default to the latest 50 available trading-data rows.
+        # This is better than a 50-calendar-day window because weekends
+        # and market holidays contain no NIFTY observations.
+        default_start_date = (
+            df.iloc[max(0, len(df) - 50)]["Date"].date()
+            if len(df) >= 50
+            else min_date.date()
+        )
+
         date_range = st.sidebar.date_input(
             "Select Date Range",
-            value=(max_date - timedelta(days=30), max_date),
+            value=(default_start_date, max_date.date()),
             min_value=min_date.date(),
             max_value=max_date.date(),
         )
@@ -65,9 +76,13 @@ try:
                 (df["Date"].dt.date >= start_date)
                 & (df["Date"].dt.date <= end_date)
             )
-            df_filtered = df.loc[mask]
+            df_filtered = df.loc[mask].copy()
         else:
-            df_filtered = df
+            df_filtered = df.copy()
+
+        st.sidebar.caption(
+            f"Showing {len(df_filtered)} available market observations."
+        )
 
 except Exception as exc:
     st.sidebar.error(f"Database error: {exc}")
@@ -91,6 +106,8 @@ tab1, tab2, tab3 = st.tabs(
 
 with tab1:
     if df_filtered is not None and not df_filtered.empty:
+        st.subheader("Last 50 Trading-Day Market Insights")
+
         col1, col2, col3, col4 = st.columns(4)
         latest_data = df_filtered.iloc[-1]
 
@@ -115,12 +132,13 @@ with tab1:
         with col4:
             st.metric("Day's Low", f"₹{latest_data['Low']:,.2f}")
 
+        # 50-observation OHLC + volume chart
         fig = make_subplots(
             rows=2,
             cols=1,
             shared_xaxes=True,
             vertical_spacing=0.03,
-            subplot_titles=("Price", "Volume"),
+            subplot_titles=("Price - Last 50 Trading Days", "Volume"),
             row_width=[0.7, 0.3],
         )
 
@@ -148,13 +166,56 @@ with tab1:
         )
 
         fig.update_layout(
-            title="NIFTY 50 Price Movement",
+            title="NIFTY 50 Price & Volume — Previous 50 Trading Days",
             yaxis_title="Price",
             yaxis2_title="Volume",
             xaxis_rangeslider_visible=False,
             height=800,
+            hovermode="x unified",
         )
         st.plotly_chart(fig, use_container_width=True)
+
+        # Closing-price trend for all selected observations
+        close_fig = go.Figure()
+        close_fig.add_trace(
+            go.Scatter(
+                x=df_filtered["Date"],
+                y=df_filtered["Close"],
+                mode="lines+markers",
+                name="NIFTY 50 Close",
+            )
+        )
+        close_fig.update_layout(
+            title="NIFTY 50 Closing Price Trend — Previous 50 Trading Days",
+            xaxis_title="Date",
+            yaxis_title="Closing Price",
+            template="plotly_white",
+            hovermode="x unified",
+        )
+        st.plotly_chart(close_fig, use_container_width=True)
+
+        # Daily return insight
+        chart_data = df_filtered.copy()
+        chart_data["Daily Return %"] = (
+            chart_data["Close"].pct_change() * 100
+        )
+
+        return_fig = go.Figure()
+        return_fig.add_trace(
+            go.Bar(
+                x=chart_data["Date"],
+                y=chart_data["Daily Return %"],
+                name="Daily Return %",
+            )
+        )
+        return_fig.update_layout(
+            title="Daily Return — Previous 50 Trading Days",
+            xaxis_title="Date",
+            yaxis_title="Return (%)",
+            template="plotly_white",
+            hovermode="x unified",
+        )
+        st.plotly_chart(return_fig, use_container_width=True)
 
 with tab2:
     col1, col2 = st.columns([2, 1])
@@ -171,10 +232,11 @@ with tab2:
                 )
             )
             sentiment_fig.update_layout(
-                title="News Sentiment Analysis Trend",
+                title="News Sentiment — Previous 50 Trading Days",
                 yaxis_title="Sentiment Score",
                 xaxis_title="Date",
                 template="plotly_white",
+                hovermode="x unified",
             )
             st.plotly_chart(sentiment_fig, use_container_width=True)
 
@@ -225,7 +287,8 @@ with tab3:
     with col2:
         if df_filtered is not None and not df_filtered.empty:
             st.subheader("Recent Market Data")
-            st.line_chart(df_filtered[["Close"]].tail(10))
+            # Show the complete selected window instead of only 10 rows.
+            st.line_chart(df_filtered[["Close"]])
 
 st.markdown("---")
 col1, col2 = st.columns(2)
