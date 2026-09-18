@@ -1,0 +1,13 @@
+# Local database
+stock_prediction.db
+stock_prediction.db-shm
+stock_prediction.db-wal
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Streamlit
+.streamlit/secrets.toml
