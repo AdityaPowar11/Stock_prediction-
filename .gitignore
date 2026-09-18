@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# SQLite temporary files
+stock_prediction.db-shm
+stock_prediction.db-wal

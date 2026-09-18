@@ -385,3 +385,31 @@ If you find this project useful for learning or experimentation, consider giving
 ### 📈 Learn from the data. Understand the news. Experiment with prediction.
 
 </div>
+
+## 🗄️ Database
+
+The application now uses **SQLite** as its persistent database. SQLite is built into Python, so no separate database server or paid service is required.
+
+The database is created automatically as:
+
+```text
+stock_prediction.db
+```
+
+The local database is intentionally excluded from Git with `.gitignore`. This prevents machine-specific runtime data from being committed to the repository.
+
+### Tables
+
+- `market_data`: one row per trading date with NIFTY 50 OHLCV data and aggregated news sentiment.
+- `news`: scraped financial-news articles, URLs, dates, and sentiment scores.
+- `app_metadata`: lightweight application metadata such as the last market update.
+
+### How data is maintained
+
+1. On first run, the existing CSV files are used to bootstrap the SQLite database.
+2. The **Update Market & News Data** button fetches the latest NIFTY 50 data and Moneycontrol news.
+3. Data is written using SQLite UPSERTs, so the same trading date or news URL is updated instead of duplicated.
+4. The dashboard reads from SQLite rather than directly from CSV files.
+5. The database remains local and persistent between application restarts.
+
+For a zero-cost single-user deployment, SQLite is a practical choice. If this becomes a multi-user production application, the database can later be migrated to PostgreSQL without changing the dashboard's overall architecture.
