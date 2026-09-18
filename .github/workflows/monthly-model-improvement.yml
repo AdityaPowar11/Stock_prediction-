@@ -1,0 +1,34 @@
+name: Monthly model improvement
+
+on:
+  schedule:
+    # 02:00 IST on the first day of every month = 20:30 UTC previous day
+    - cron: "30 20 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy scikit-learn joblib tensorflow yfinance textblob newspaper3k nltk beautifulsoup4 lxml requests
+      - name: Refresh data
+        run: python -c "from stock_prediction import update_database; update_database()"
+      - name: Train and compare models
+        run: python model_training.py
+      - name: Commit improved model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stock_prediction.db models
+          git diff --cached --quiet || git commit -m "chore: monthly model retraining and selection"
+          git push
