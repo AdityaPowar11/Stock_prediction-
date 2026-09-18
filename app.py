@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from database import load_latest_news
+from database import load_latest_news, evaluated_prediction_summary, latest_model_metrics
 from stock_prediction import get_data, update_and_predict, update_database
 
 warnings.filterwarnings("ignore")
@@ -199,7 +199,53 @@ with tab2:
                 )
 
 with tab3:
-    st.subheader("Stock Price Prediction")
+    st.subheader("Model Performance & Prediction History")
+
+    eval_df = evaluated_prediction_summary()
+    if not eval_df.empty:
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            st.metric("Evaluated Predictions", f"{len(eval_df):,}")
+        with m2:
+            st.metric("Prediction MAE", f"₹{eval_df['absolute_error'].mean():,.2f}")
+        with m3:
+            st.metric(
+                "Mean Absolute % Error",
+                f"{eval_df['absolute_percentage_error'].mean():.2f}%"
+            )
+
+        chart_df = eval_df.set_index("prediction_date")[
+            ["predicted_close", "actual_close"]
+        ]
+        st.line_chart(chart_df)
+
+        st.subheader("Prediction History")
+        display_df = eval_df.tail(20).copy()
+        display_df["prediction_date"] = pd.to_datetime(display_df["prediction_date"])
+        st.dataframe(
+            display_df[
+                [
+                    "prediction_date",
+                    "predicted_close",
+                    "actual_close",
+                    "error",
+                    "model_name",
+                    "model_version",
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("Prediction performance will appear after predictions receive actual market closes.")
+
+    model_df = latest_model_metrics()
+    if not model_df.empty:
+        st.subheader("Model Training History")
+        st.dataframe(model_df, use_container_width=True, hide_index=True)
+
+    st.divider()
+    st.subheader("Generate Prediction")
 
     col1, col2 = st.columns([1, 2])
 
@@ -214,10 +260,7 @@ with tab3:
                     elif df_filtered is not None and not df_filtered.empty:
                         last_close = df_filtered["Close"].iloc[-1]
                         change = ((prediction - last_close) / last_close) * 100
-                        st.metric(
-                            "Predicted Close",
-                            f"₹{prediction:,.2f}",
-                        )
+                        st.metric("Predicted Close", f"₹{prediction:,.2f}")
                         st.metric("Predicted Change", f"{change:,.2f}%")
                 except Exception as exc:
                     st.error(f"Error generating prediction: {exc}")
