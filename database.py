@@ -290,6 +290,44 @@ def record_model_metric(model_name, model_version, mae, rmse, directional_accura
         )
 
 
+def prediction_metrics():
+    init_db()
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(actual_close) AS evaluated_predictions,
+                AVG(ABS(predicted_close - actual_close)) AS mae,
+                SQRT(AVG((predicted_close - actual_close) * (predicted_close - actual_close))) AS rmse,
+                AVG(
+                    CASE
+                        WHEN actual_close IS NOT NULL
+                         AND LAG(actual_close) OVER (ORDER BY prediction_date) IS NOT NULL
+                        THEN 1.0
+                    END
+                ) AS placeholder
+            FROM predictions
+            """
+        ).fetchone()
+        return row
+
+
+def latest_model_metrics(limit=12):
+    init_db()
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT model_name, model_version, mae, rmse,
+                   directional_accuracy, trained_at
+            FROM model_metrics
+            ORDER BY trained_at DESC
+            LIMIT ?
+            """,
+            conn,
+            params=(int(limit),),
+        )
+
+
 def latest_predictions(limit=30):
     init_db()
     with get_connection() as conn:
@@ -303,3 +341,29 @@ def latest_predictions(limit=30):
             conn,
             params=(int(limit),),
         )
+
+
+
+def evaluated_prediction_summary():
+    init_db()
+    with get_connection() as conn:
+        rows = pd.read_sql_query(
+            """
+            SELECT prediction_date, predicted_close, actual_close, model_name, model_version
+            FROM predictions
+            WHERE actual_close IS NOT NULL
+            ORDER BY prediction_date
+            """,
+            conn,
+        )
+
+    if rows.empty:
+        return rows
+
+    rows["error"] = rows["predicted_close"] - rows["actual_close"]
+    rows["absolute_error"] = rows["error"].abs()
+    rows["absolute_percentage_error"] = (
+        rows["absolute_error"] / rows["actual_close"].abs()
+    ) * 100
+
+    return rows
