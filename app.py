@@ -291,6 +291,35 @@ with tab3:
             st.line_chart(df_filtered[["Close"]])
 
 st.markdown("---")
+
+st.subheader("🗄️ Latest 5 Database Rows")
+st.caption("These are the five most recently stored NIFTY 50 market records in SQLite.")
+
+try:
+    latest_db_rows = df.sort_values("Date", ascending=False).head(5).copy()
+    display_columns = [
+        "Date", "Open", "High", "Low", "Close", "Volume", "news_sentiment"
+    ]
+    latest_db_rows["Date"] = latest_db_rows["Date"].dt.strftime("%Y-%m-%d")
+    st.dataframe(
+        latest_db_rows[display_columns],
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Date": "Date",
+            "Open": st.column_config.NumberColumn("Open", format="₹%.2f"),
+            "High": st.column_config.NumberColumn("High", format="₹%.2f"),
+            "Low": st.column_config.NumberColumn("Low", format="₹%.2f"),
+            "Close": st.column_config.NumberColumn("Close", format="₹%.2f"),
+            "Volume": st.column_config.NumberColumn("Volume", format="%.0f"),
+            "news_sentiment": st.column_config.NumberColumn(
+                "News Sentiment", format="%.3f"
+            ),
+        },
+    )
+except Exception as exc:
+    st.warning(f"Could not load recent database rows: {exc}")
+
 col1, col2 = st.columns(2)
 with col1:
     st.markdown("Data is persisted in a local SQLite database.")
