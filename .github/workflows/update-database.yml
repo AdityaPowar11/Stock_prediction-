@@ -1,40 +1,57 @@
-name: Update market database
+name: Daily Market and News Update
 
 on:
   schedule:
-    # 17:00 IST = 11:30 UTC, Monday-Friday
     - cron: "30 11 * * 1-5"
   workflow_dispatch:
 
 permissions:
   contents: write
 
-jobs:
-  update-database:
-    runs-on: ubuntu-latest
+concurrency:
+  group: daily-market-news-update
+  cancel-in-progress: false
 
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas yfinance textblob newspaper3k nltk beautifulsoup4 lxml requests
-
-      - name: Update SQLite database
+          pip install -r requirements.txt
+      - name: Update market and news database
+        run: python daily_update.py
+      - name: Show database status
         run: |
-          python -c "from stock_prediction import update_database; update_database()"
-
+          python - <<'PY'
+          from database import load_market_data, load_latest_news, get_connection
+          market = load_market_data()
+          news = load_latest_news()
+          with get_connection() as conn:
+              row = conn.execute("SELECT key, value FROM app_metadata ORDER BY key").fetchall()
+          print(f"Market rows: {len(market)}")
+          print(f"Latest market date: {market['Date'].max() if not market.empty else 'NONE'}")
+          print(f"News rows: {len(news)}")
+          print("Metadata:", dict(row))
+          PY
       - name: Commit database changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add stock_prediction.db
-          git diff --cached --quiet || git commit -m "chore: update market and news database"
-          git push
+          if git diff --cached --quiet; then
+            echo "No database changes to commit."
+          else
+            git commit -m "chore: update daily market and news database"
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
