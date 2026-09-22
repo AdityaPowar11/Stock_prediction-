@@ -179,19 +179,25 @@ def database_is_empty():
 
 
 def seed_from_csv():
-    """One-time bootstrap for an existing checkout that already has CSV data."""
-    if not database_is_empty():
-        return
+    """Import CSV history into SQLite without deleting existing records.
 
+    The existing upsert functions make this safe to run repeatedly:
+    matching market dates and news URLs are updated, while new records
+    are inserted without creating duplicates.
+    """
     market_path = Path("nifty_index_with_sentiment.csv")
     news_path = Path("news_df.csv")
 
     if market_path.exists():
         market_df = pd.read_csv(market_path)
+        if "news_sentiment" not in market_df.columns:
+            market_df["news_sentiment"] = 0.0
         upsert_market_data(market_df)
 
     if news_path.exists():
         news_df = pd.read_csv(news_path)
+        if "news_sentiment" not in news_df.columns:
+            news_df["news_sentiment"] = 0.0
         upsert_news(news_df)
 
 
