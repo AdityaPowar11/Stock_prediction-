@@ -25,10 +25,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install dependencies
+      - name: Install daily pipeline dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install pandas==2.2.3 yfinance==0.2.61 textblob==0.19.0 newspaper3k==0.2.8 nltk==3.9.1 beautifulsoup4==4.13.4 lxml==5.4.0 requests==2.32.3
       - name: Update market and news database
         run: python daily_update.py
       - name: Show database status
