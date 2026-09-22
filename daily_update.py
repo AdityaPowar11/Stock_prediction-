@@ -25,6 +25,7 @@ def fetch_market_data():
                 raise RuntimeError("yfinance returned no NIFTY 50 rows.")
             data["Date"] = pd.to_datetime(data["Date"]).dt.date
             result = data[["Date", "Open", "High", "Low", "Close", "Volume"]].copy()
+            result["news_sentiment"] = 0.0
             if result["Close"].isna().all():
                 raise RuntimeError("NIFTY 50 close price is empty.")
             return result
@@ -79,10 +80,16 @@ def main():
     latest_date = str(market_df["Date"].max())
     set_metadata("last_market_update", pd.Timestamp.utcnow().isoformat())
     set_metadata("last_market_date", latest_date)
-    set_metadata("last_news_update", pd.Timestamp.utcnow().isoformat() if not news_df.empty else "news collection failed")
+    set_metadata(
+        "last_news_update",
+        pd.Timestamp.utcnow().isoformat() if not news_df.empty else "news collection failed",
+    )
     set_metadata("last_news_rows", str(len(news_df)))
 
-    print(f"SUCCESS: market rows={len(market_df)}, latest_date={latest_date}, news rows={len(news_df)}")
+    print(
+        f"SUCCESS: market rows={len(market_df)}, "
+        f"latest_date={latest_date}, news rows={len(news_df)}"
+    )
 
 
 if __name__ == "__main__":
